@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String?
+  isProject Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  role           String       // "user" or "assistant"
+  content        String
+  createdAt      DateTime     @default(now())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model SidebarItem {
+  id        String   @id @default(cuid())
+  title     String
+  icon_url   String
+  route     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model CodexTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("pending") // "pending", "ongoing", "completed"
+  repoName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

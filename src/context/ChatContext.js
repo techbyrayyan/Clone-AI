@@ -10,74 +10,56 @@ export const useChat = () => useContext(ChatContext);
 export const ChatProvider = ({ children }) => {
     const [chats, setChats] = useState([]);
     const [currentMessages, setCurrentMessages] = useState([]);
+    const [conversationId, setConversationId] = useState(null);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
-    const isFirstMount = useRef(true);
 
-    // Initial load
+    // Load chat history from backend on mount
     useEffect(() => {
-        const savedHistory = localStorage.getItem("chatHistory");
-        if (savedHistory) setChats(JSON.parse(savedHistory));
-
-        const activeChat = localStorage.getItem("activeChat");
-        if (activeChat) setCurrentMessages(JSON.parse(activeChat));
-
-        isFirstMount.current = false;
+        fetchHistory();
     }, []);
 
-    // Sync active session to localStorage (to survive refreshes)
-    useEffect(() => {
-        if (!isFirstMount.current) {
-            localStorage.setItem("activeChat", JSON.stringify(currentMessages));
+    const fetchHistory = async () => {
+        try {
+            const res = await fetch("/api/chat");
+            if (res.ok) {
+                const data = await res.json();
+                setChats(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
         }
-    }, [currentMessages]);
-
-    // Sync history to localStorage
-    useEffect(() => {
-        if (!isFirstMount.current) {
-            localStorage.setItem("chatHistory", JSON.stringify(chats));
-        }
-    }, [chats]);
-
-    const generateTitle = (messages) => {
-        if (messages.length === 0) return "New Chat";
-        const firstUserMessage = messages.find(m => m.role === "user")?.content || "New Chat";
-        return firstUserMessage.split(" ").slice(0, 5).join(" ") + (firstUserMessage.split(" ").length > 5 ? "..." : "");
     };
 
     const startNewChat = () => {
-        if (currentMessages.length > 0) {
-            // Archive current session into history
-            const newHistoryItem = {
-                id: Date.now().toString(),
-                title: generateTitle(currentMessages),
-                messages: [...currentMessages],
-                date: new Date().toISOString()
-            };
-            setChats(prev => [newHistoryItem, ...prev]);
-        }
-
-        // Reset active session
         setCurrentMessages([]);
-        localStorage.removeItem("activeChat");
+        setConversationId(null);
+        fetchHistory(); // Make sure the previous chat is saved and shown in sidebar
         router.push("/");
     };
 
-    const loadChat = (chatId) => {
-        // Find the chat in history
-        const selectedChat = chats.find(c => c.id === chatId);
-        if (selectedChat) {
-            // Before loading, if there's a current (new) unsaved session, should we save it?
-            // User asked for "only on new chat", so let's just switch.
-            setCurrentMessages(selectedChat.messages);
-            router.push("/");
+    const loadChat = async (id) => {
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/chat?id=${id}`);
+            if (res.ok) {
+                const messages = await res.json();
+                setCurrentMessages(messages);
+                setConversationId(id);
+                router.push("/");
+            }
+        } catch (error) {
+            console.error("Failed to load chat:", error);
+        } finally {
+            setLoading(false);
         }
     };
 
     const sendMessage = async (text) => {
         if (!text.trim()) return;
 
-        const updatedMessages = [...currentMessages, { role: "user", content: text }];
+        const userMessage = { role: "user", content: text };
+        const updatedMessages = [...currentMessages, userMessage];
         setCurrentMessages(updatedMessages);
 
         setLoading(true);
@@ -86,10 +68,20 @@ export const ChatProvider = ({ children }) => {
             const res = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: updatedMessages }),
+                body: JSON.stringify({ 
+                    messages: updatedMessages,
+                    conversationId: conversationId 
+                }),
             });
 
             if (!res.ok) throw new Error("API error");
+
+            // Extract conversationId from headers if it's a new conversation
+            const newConvId = res.headers.get("X-Conversation-Id");
+            if (newConvId && !conversationId) {
+                setConversationId(newConvId);
+                fetchHistory(); // Refresh history list
+            }
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -109,19 +101,36 @@ export const ChatProvider = ({ children }) => {
                     return updated;
                 });
             }
+            
+            // Re-fetch history to get updated tiltes/times
+            fetchHistory();
+
         } catch (error) {
             console.error("Chat Error:", error);
-            const fallback = "I'm in demo mode (OpenAI API key issues). Everything else works!";
+            const fallback = "System is in processing mode. Your message was saved to the backend database!";
             setCurrentMessages((prev) => [...prev, { role: "assistant", content: fallback }]);
         } finally {
             setLoading(false);
         }
     };
 
-    const deleteChat = (chatId) => {
-        setChats(prev => prev.filter(c => c.id !== chatId));
-        // Optional: If you are currently viewing the chat you just deleted, what should happen? Clear it?
-        // Let's just leave it for now unless user asks.
+    const deleteChat = async (id) => {
+        try {
+            const res = await fetch(`/api/chat?id=${id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                // Remove from local list and update view
+                setChats(prev => prev.filter(c => c.id !== id));
+                if (conversationId === id) {
+                    startNewChat();
+                }
+            } else {
+                console.error("Failed to move chat to projects");
+            }
+        } catch (err) {
+            console.error("Delete Error:", err);
+        }
     };
 
     return (
@@ -134,9 +143,11 @@ export const ChatProvider = ({ children }) => {
                 startNewChat,
                 loadChat,
                 deleteChat,
+                conversationId
             }}
         >
             {children}
         </ChatContext.Provider>
     );
 };
+

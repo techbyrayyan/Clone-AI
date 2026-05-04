@@ -1,34 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, X, CircleDollarSign, GraduationCap, PenTool, Plane, Lightbulb, Smile } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, X, CircleDollarSign, GraduationCap, PenTool, Plane, Lightbulb, Smile, MessageSquare, Clock } from "lucide-react";
+import { useChat } from "@/context/ChatContext";
 
 export default function ProjectsPage() {
     const [projectName, setProjectName] = useState("");
+    const [projectChats, setProjectChats] = useState([]);
+    const { loadChat } = useChat();
 
-    // Use to handle the preset quick tags
+    useEffect(() => {
+        const fetchProjectChats = async () => {
+            try {
+                const res = await fetch("/api/chat?type=project");
+                if (res.ok) {
+                    const data = await res.json();
+                    setProjectChats(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch project chats:", err);
+            }
+        };
+        fetchProjectChats();
+    }, []);
+
     const handleTagClick = (tag) => {
         setProjectName(tag);
     };
 
     return (
-        <div className="flex h-screen w-full items-center justify-center bg-[#171717] p-4 sm:p-8 font-sans">
-            {/* Modal Card - Equal margin around it is achieved by flex center and padding on parent */}
-            <div className="w-full max-w-[660px] bg-[#212121] rounded-[24px] p-6 sm:p-8 shadow-2xl border border-gray-800/80">
-                {/* Header */}
+        <div className="flex flex-col min-h-screen w-full bg-[#171717] p-4 sm:p-8 font-sans overflow-y-auto custom-scrollbar">
+            {/* Modal Card - Create Project */}
+            <div className="w-full max-w-[660px] mx-auto bg-[#212121] rounded-[24px] p-6 sm:p-8 shadow-2xl border border-gray-800/80 mb-10">
                 <div className="flex items-center justify-between mb-6">
                     <h1 className="text-2xl font-semibold text-white tracking-tight">Create project</h1>
                     <div className="flex items-center gap-2">
                         <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5 cursor-pointer">
                             <Settings size={22} strokeWidth={1.5} />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5 cursor-pointer">
-                            <X size={24} strokeWidth={1.5} />
-                        </button>
                     </div>
                 </div>
 
-                {/* Input Field */}
                 <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center text-gray-400 group-focus-within:text-white transition-colors">
                         <div className="relative">
@@ -40,55 +52,23 @@ export default function ProjectsPage() {
                         type="text"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
-                        placeholder="Copenhagen Trip"
+                        placeholder="Project Name..."
                         className="w-full bg-transparent border border-gray-600 focus:border-gray-400 rounded-xl py-4 pl-14 pr-4 text-white text-[17px] placeholder-gray-500 outline-none transition-colors"
                     />
                 </div>
 
-                {/* Tags Row */}
                 <div className="flex flex-wrap gap-3 mt-5">
-                    <button
-                        onClick={() => handleTagClick("Investing")}
-                        className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-gray-600 hover:bg-[#2A2A2A] transition-colors cursor-pointer group"
-                    >
-                        <CircleDollarSign size={18} className="text-[#10a37f] group-hover:scale-110 transition-transform" strokeWidth={2} />
-                        <span className="text-[15px] font-medium text-white/90">Investing</span>
-                    </button>
-
-                    <button
-                        onClick={() => handleTagClick("Homework")}
-                        className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-gray-600 hover:bg-[#2A2A2A] transition-colors cursor-pointer group"
-                    >
-                        <GraduationCap size={18} className="text-[#3b82f6] group-hover:scale-110 transition-transform" strokeWidth={2} />
-                        <span className="text-[15px] font-medium text-white/90">Homework</span>
-                    </button>
-
-                    <button
-                        onClick={() => handleTagClick("Writing")}
-                        className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-gray-600 hover:bg-[#2A2A2A] transition-colors cursor-pointer group"
-                    >
-                        <PenTool size={18} className="text-[#a855f7] group-hover:scale-110 transition-transform" strokeWidth={2} />
-                        <span className="text-[15px] font-medium text-white/90">Writing</span>
-                    </button>
-
-                    <button
-                        onClick={() => handleTagClick("Travel")}
-                        className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-gray-600 hover:bg-[#2A2A2A] transition-colors cursor-pointer group"
-                    >
-                        <Plane size={18} className="text-[#eab308] group-hover:scale-110 transition-transform" strokeWidth={2} />
-                        <span className="text-[15px] font-medium text-white/90">Travel</span>
-                    </button>
+                    {["Investing", "Homework", "Writing", "Travel"].map((tag) => (
+                        <button
+                            key={tag}
+                            onClick={() => handleTagClick(tag)}
+                            className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-gray-600 hover:bg-[#2A2A2A] transition-colors cursor-pointer group"
+                        >
+                            <span className="text-[15px] font-medium text-white/90">{tag}</span>
+                        </button>
+                    ))}
                 </div>
 
-                {/* Info Box */}
-                <div className="mt-6 bg-[#303030] rounded-2xl p-4 sm:p-5 flex items-start gap-4 shadow-sm border border-gray-700/50">
-                    <Lightbulb size={24} className="text-gray-300 shrink-0 mt-0.5" strokeWidth={1.5} />
-                    <p className="text-[15px] leading-relaxed text-[#c3c3c3]">
-                        Projects keep chats, files, and custom instructions in one place. Use them for ongoing work, or just to keep things tidy.
-                    </p>
-                </div>
-
-                {/* Footer Action */}
                 <div className="mt-8 flex justify-end">
                     <button
                         disabled={projectName.length === 0}
@@ -99,6 +79,48 @@ export default function ProjectsPage() {
                     >
                         Create project
                     </button>
+                </div>
+            </div>
+
+            {/* Project History / Moved Chats Section */}
+            <div className="w-full max-w-[660px] mx-auto">
+                <div className="flex items-center gap-3 mb-6">
+                    <h2 className="text-xl font-medium text-white/90">Moved Chats & Projects</h2>
+                    <span className="bg-[#10a37f]/20 text-[#10a37f] text-xs font-bold px-2 py-0.5 rounded-full">{projectChats.length}</span>
+                </div>
+
+                <div className="grid gap-3">
+                    {projectChats.length > 0 ? (
+                        projectChats.map((chat) => (
+                            <button
+                                key={chat.id}
+                                onClick={() => loadChat(chat.id)}
+                                className="w-full bg-[#212121] border border-gray-800/50 hover:border-gray-700 p-4 rounded-2xl flex items-center gap-4 text-left transition-all hover:bg-[#2A2A2A] group"
+                            >
+                                <div className="w-12 h-12 bg-[#303030] rounded-xl flex items-center justify-center shrink-0 group-hover:bg-[#383838] transition-colors">
+                                    <MessageSquare size={22} className="text-[#10a37f]" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-[16px] font-medium text-white truncate">{chat.title || "Untitled Search"}</h3>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                            <Clock size={12} />
+                                            <span>{new Date(chat.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-2 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Plane size={18} />
+                                </div>
+                            </button>
+                        ))
+                    ) : (
+                        <div className="text-center py-12 bg-[#212121]/50 rounded-3xl border border-dashed border-gray-800">
+                            <Lightbulb size={40} className="text-gray-700 mx-auto mb-4" />
+                            <p className="text-gray-500">No chats moved to projects yet.</p>
+                            <p className="text-xs text-gray-600 mt-1">Delete a chat from "Your Chats" to see it here.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -34,8 +34,8 @@ const Sidebar = () => {
     const groupedChats = useMemo(() => {
         const query = searchQuery.toLowerCase();
         const filtered = chats.filter(chat =>
-            chat.title.toLowerCase().includes(query) ||
-            chat.messages.some(m => m.content.toLowerCase().includes(query))
+            (chat.title || "Untitled").toLowerCase().includes(query) ||
+            (chat.messages && chat.messages.some(m => m.content.toLowerCase().includes(query)))
         );
 
         const groups = {
@@ -53,7 +53,7 @@ const Sidebar = () => {
         sevenDaysAgo.setDate(today.getDate() - 7);
 
         filtered.forEach(chat => {
-            const chatDate = new Date(chat.date);
+            const chatDate = new Date(chat.createdAt);
             if (chatDate >= today) groups.Today.push(chat);
             else if (chatDate >= yesterday) groups.Yesterday.push(chat);
             else if (chatDate >= sevenDaysAgo) groups["Previous 7 Days"].push(chat);
@@ -66,19 +66,26 @@ const Sidebar = () => {
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
 
     useEffect(() => {
-        fetch('/images/api/sidebar')
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    setDynamicMenuItems(data.map(item => ({
-                        name: item.title,
-                        icon_url: item.icon_url,
-                        href: item.route,
-                        isDynamic: true
-                    })));
-                }
-            })
-            .catch(err => console.error("Failed to fetch sidebar items:", err));
+        const fetchSidebar = () => {
+            fetch('/api/sidebar')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setDynamicMenuItems(data.map(item => ({
+                            id: item.id,
+                            name: item.title,
+                            icon_url: item.icon_url,
+                            href: item.route,
+                            isDynamic: true
+                        })));
+                    }
+                })
+                .catch(err => console.error("Failed to fetch sidebar items:", err));
+        };
+
+        fetchSidebar();
+        window.addEventListener('sidebar-update', fetchSidebar);
+        return () => window.removeEventListener('sidebar-update', fetchSidebar);
     }, []);
 
     const staticMenuItems = [
@@ -110,7 +117,7 @@ const Sidebar = () => {
                                     Rayyan Ansari
                                 </span>
                             </div>
-                        )}
+                        )} 
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             title={isOpen ? "Close sidebar" : "Open sidebar"}
